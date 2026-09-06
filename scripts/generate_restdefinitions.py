@@ -163,9 +163,14 @@ OVERRIDES = {
               "- see docs/oasgen-provider-evolution.md. No update verb (password change "
               "is a separate PUT .../password sub-endpoint).")),
     "database/grants": dict(
-        metaWrap=False, idField="user", statusId="",
-        note=("Grant is name-keyed (create {user, role}); item path segment is "
-              "{username}. No update/dedicated id.")),
+        metaWrap=False, idField="user.username", statusId="",
+        note=("Grant is name-keyed. The create body nests the name as {user:{username}} "
+              "and the item path segment is {username}, so the identifier must be the "
+              "LEAF user.username, NOT the object `user`. Binding the object produced "
+              "GET .../grants/map%5Busername:gauser%5D -- Go stringified the map into "
+              "the path -- so observe never matched and the controller re-POSTed until "
+              "the API answered 'A grant already exists for the specified Database "
+              "User'. No update verb and no dedicated id.")),
     "security/keys": dict(
         metaWrap=False, idField="name",
         note=("Key create body is flat {name, algorithm}. The findby item carries the "

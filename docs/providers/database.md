@@ -20,7 +20,7 @@ timestamp: 2026-08-19T00:00:00Z
 | `DatabaseBackup` | findby, create, delete | `metadata.name` | — |
 | `DatabaseUser` | findby, get, create, delete | `username` | — |
 | `Dbaas` | findby, get, create, update, delete | `metadata.name` | — |
-| `Grant` | findby, get, create, delete | `user` | — |
+| `Grant` | findby, get, create, delete | `user.username` | — |
 
 
 ## Database
@@ -87,7 +87,7 @@ Sample: [`samples/database/dbaas.yaml`](../../samples/database/dbaas.yaml) · [`
 
 ## Grant
 
-> Grant is name-keyed (create {user, role}); item path segment is {username}. No update/dedicated id.
+> Grant is name-keyed. The create body nests the name as {user:{username}} and the item path segment is {username}, so the identifier must be the LEAF user.username, NOT the object `user`. Binding the object produced GET .../grants/map%5Busername:gauser%5D -- Go stringified the map into the path -- so observe never matched and the controller re-POSTed until the API answered 'A grant already exists for the specified Database User'. No update verb and no dedicated id.
 
 | Verb | Method | Path |
 |------|--------|------|

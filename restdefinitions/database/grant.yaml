@@ -1,5 +1,5 @@
 # Aruba Cloud Grant (database provider) - generated, no proxy.
-# Grant is name-keyed (create {user, role}); item path segment is {username}. No update/dedicated id.
+# Grant is name-keyed. The create body nests the name as {user:{username}} and the item path segment is {username}, so the identifier must be the LEAF user.username, NOT the object `user`. Binding the object produced GET .../grants/map%5Busername:gauser%5D -- Go stringified the map into the path -- so observe never matched and the controller re-POSTed until the API answered 'A grant already exists for the specified Database User'. No update verb and no dedicated id.
 apiVersion: ogen.krateo.io/v1alpha1
 kind: RestDefinition
 metadata:
@@ -10,7 +10,7 @@ spec:
   resource:
     kind: Grant
     identifiers:
-    - user
+    - user.username
     excludedSpecFields:
     - username
     verbsDescription:
@@ -22,7 +22,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{databaseName}/grants/{username}
       requestFieldMapping:
       - inPath: username
-        inCustomResource: spec.user
+        inCustomResource: spec.user.username
     - action: create
       method: POST
       path: /projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{databaseName}/grants
@@ -31,7 +31,7 @@ spec:
       path: /projects/{projectId}/providers/Aruba.Database/dbaas/{dbaasId}/databases/{databaseName}/grants/{username}
       requestFieldMapping:
       - inPath: username
-        inCustomResource: spec.user
+        inCustomResource: spec.user.username
     configurationFields:
     - fromOpenAPI:
         name: api-version

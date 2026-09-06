@@ -19,9 +19,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 16 |
-| beta | observe verified live; mutation unproven | 7 |
+| beta | observe verified live; mutation unproven | 9 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 7 |
-| **blocked** | known non-functional, reason recorded | 4 |
+| **blocked** | known non-functional, reason recorded | 2 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -37,9 +37,9 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | container | `Registry` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
 | database | `Database` | beta | findby,get,create,delete | `name` | create/observe proven live (name-keyed, `status.name = gadb`); deleted with its parent rather than individually — **billable parent** — [live-cluster-test](live-cluster-test.md) |
 | database | `DatabaseBackup` | experimental | findby,create,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| database | `DatabaseUser` | **blocked** | findby,get,create,delete | `username` | **password policy is undeclared and unguessable** — the OAS gives `password` no `minLength` or `pattern`, and the API rejects even Aruba's own SDK example value; see [live-cluster-test](live-cluster-test.md) |
+| database | `DatabaseUser` | beta | findby,get,create,delete | `username` | create/observe proven live (`gauser`). The password must be **base64-encoded** — undocumented; a plaintext value is rejected as a policy failure that it is not. No update verb, so drift is N/A; delete proven with the chain — [live-cluster-test](live-cluster-test.md) |
 | database | `Dbaas` | beta | findby,get,create,update,delete | `metadata.name` | create/observe/delete proven live (`6a9a846d`, mysql-8.0 / DBO1A2 / 20 GB); drift injection rejected with 400 — its update body will not accept a full re-PUT — **billable** — [live-cluster-test](live-cluster-test.md) |
-| database | `Grant` | **blocked** | findby,get,create,delete | `user` | depends on `DatabaseUser`, which cannot be created |
+| database | `Grant` | beta | findby,get,create,delete | `user.username` | create/observe proven live once its identifier was bound to the leaf `user.username` — binding the object `user` put `map[username:gauser]` in the URL. No update verb, so drift is N/A — [live-cluster-test](live-cluster-test.md) |
 | metering | `AlertRule` | experimental | findby,get,create,update,delete | `name` | applies and reaches `Ready`; sample admitted by its CRD |
 | network | `ElasticIp` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — **billable** (`billingPlan.billingPeriod`), created and deleted within one hour — [live-cluster-test](live-cluster-test.md) |
 | network | `LoadBalancer` | **blocked** | findby,get | `metadata.name` | identifier corrected to `metadata.name` (its findby items are metadata-wrapped), but the generated selector is a **flat** key while RDC reads it nested — [oasgen-provider#106](https://github.com/krateo-platformops/oasgen-provider/issues/106) — so `findby` cannot match. Separately, no load balancer can be created: the API has no create verb, and one exists only as a side effect of a Service of type LoadBalancer inside a KaaS cluster |

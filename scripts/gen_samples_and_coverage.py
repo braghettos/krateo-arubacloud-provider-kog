@@ -159,14 +159,18 @@ TIERS = {
         "[live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "DatabaseUser"): (
-        "blocked",
-        "**password policy is undeclared and unguessable** — the OAS gives `password` "
-        "no `minLength` or `pattern`, and the API rejects even Aruba's own SDK example "
-        "value; see [live-cluster-test](live-cluster-test.md)",
+        "beta",
+        "create/observe proven live (`gauser`). The password must be **base64-encoded** "
+        "— undocumented; a plaintext value is rejected as a policy failure that it is "
+        "not. No update verb, so drift is N/A; delete proven with the chain — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("database", "Grant"): (
-        "blocked",
-        "depends on `DatabaseUser`, which cannot be created",
+        "beta",
+        "create/observe proven live once its identifier was bound to the leaf "
+        "`user.username` — binding the object `user` put `map[username:gauser]` in the "
+        "URL. No update verb, so drift is N/A — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("network", "VpnTunnel"): (
         "beta",

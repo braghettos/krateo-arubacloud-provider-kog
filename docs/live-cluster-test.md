@@ -934,3 +934,54 @@ and the constraints absent from the OpenAPI documents are written down in their 
 examples, CLI e2e scripts and operator reconcile logic. Reading those is cheaper than
 discovering the same rules one billable 400 at a time — and it is how this resource went
 from blocked to GA without a single extra guess.
+
+### DatabaseUser and Grant unblocked — base64, and a leaf identifier
+
+Two blockers fell in one run, and neither was a policy problem.
+
+**The password must be base64-encoded, and nothing says so.** Every plaintext value was
+rejected with `Password does not match the minimum requirements` — including Aruba's own
+SDK example — which reads as a complexity failure and is not one. Their Terraform
+provider encodes client-side:
+
+```go
+// internal/provider/dbaasuser_resource.go:130
+passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
+```
+
+Sending `UHJvdmExMjM0NTY3ODlBQ0A=` (base64 of `Prova123456789AC@`) worked immediately.
+The same file records a second undocumented trap in a comment: that identical error is
+*also* returned while the DBaaS user API is still initialising, even with a correct
+password — the provider polls `GET` on a non-existent user until it 404s to prove the API
+is up. **Two unrelated causes, one misleading message.**
+
+**Grant was our bug.** Its identifier was bound to the object `user`, not the leaf, so
+the `{username}` path parameter was filled with a stringified Go map:
+
+```
+GET .../grants/map%5Busername:gauser%5D
+```
+
+Observe therefore never matched, and the controller re-POSTed until the API answered
+`A grant already exists for the specified Database User` — the grant had been created on
+the first attempt and then lost. With `identifiers: [user.username]` and the get verb
+bound to `spec.user.username`, it reconciles cleanly against the existing grant.
+
+That is the same failure as `security/Key`'s `keyId` and `AlertRule`'s flat response: an
+identifier bound to something the API does not key on. The generator now derives the id
+field and metadata-wrapping from the response schema; this case needed the *leaf* of a
+nested create body, which the override table now states explicitly.
+
+```
+Dbaas        6a9d90dd   Ready
+Database     gadb       Ready
+DatabaseUser gauser     Ready   (base64 password)
+Grant        gauser     Ready   (leaf identifier)
+teardown 4/4 · dbaas 0 · no CRs remaining
+```
+
+Both are **beta**, not GA: neither has an update verb, so drift is not applicable, but
+their delete was exercised only through the chain teardown rather than as a verified
+step. **`P2` still stands** — `DatabaseUser.password` is a plaintext-in-spec field, and
+now demonstrably a base64-in-spec one, which is no better. The `database` provider should
+not be promoted until it can source that value from a Secret.
