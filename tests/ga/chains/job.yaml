@@ -1,12 +1,20 @@
-# schedule/Job — free. The API requires EXACTLY ONE steps[] entry, and a step is a
-# resourceUri + actionUri pair against an existing resource. The step here is a GET
-# against the pre-existing VPC on a job created with enabled: false, so it targets
-# something real without ever mutating anything.
+# schedule/Job. A step's only supported actions are poweron / poweroff via POST
+# (Aruba metadata docs: "Only `poweron` and `poweroff` are currently supported",
+# body must be null), so a Job REQUIRES a CloudServer to target.
+#
+# The server is created out of band because its POST lives in the 1.1 OAS document and a
+# RestDefinition carries a single oasPath (oasgen-provider#108). Its id is passed in via
+# the environment, so this fixture pins nothing:
+#
+#   GA_CS_ID=<cloudserver id> python3 scripts/ga_chain.py tests/ga/chains/job.yaml
+#
+# enabled: false — the job is never meant to fire; this proves the resource lifecycle,
+# not the power operation.
 name: job
 vars:
   PROJECT: 69a55c8d5e6f0e14f14093ff
   LOCATION: ITBG-Bergamo
-  VPC_ID: 69a5609fa851081197caa45f
+  CS_ID: ""
 residue:
   - /projects/${PROJECT}/providers/Aruba.Schedule/jobs
 resources:
@@ -25,8 +33,8 @@ resources:
         enabled: false
         executeUntil: "2027-01-01T00:00:00Z"
         steps:
-          - name: ga-noop-read
-            httpVerb: GET
-            resourceUri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}"
-            actionUri: "/projects/${PROJECT}/providers/Aruba.Network/vpcs/${VPC_ID}"
+          - name: ga-poweroff
+            httpVerb: POST
+            resourceUri: "/projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${CS_ID}"
+            actionUri: "/projects/${PROJECT}/providers/Aruba.Compute/cloudServers/${CS_ID}/poweroff"
     drift: /projects/${PROJECT}/providers/Aruba.Schedule/jobs/${id:self}

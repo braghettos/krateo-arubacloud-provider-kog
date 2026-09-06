@@ -95,11 +95,11 @@ TIERS = {
         "return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md)",
     ),
     ("schedule", "Job"): (
-        "blocked",
-        "a step's only supported actions are **`poweron` / `poweroff` via POST** "
-        "(GET is rejected: *All steps must have a correct HttpVerb defined*), so a Job "
-        "requires a `CloudServer` to target — none exists and CloudServer creation is "
-        "itself blocked on snowplow (P0-3)",
+        "beta",
+        "create/observe proven live (`6a9d9ec6`) against a real CloudServer. A step is "
+        "**`POST` with a RELATIVE `actionUri`** (`poweroff`) — a full path is rejected "
+        "as *not configured for this resource typology* — "
+        "[live-cluster-test](live-cluster-test.md)",
     ),
     ("storage", "BlockStorage"): (
         "ga",
@@ -203,8 +203,11 @@ TIERS = {
     ),
     ("compute", "CloudServer"): (
         "experimental",
-        "gained a `metadata.name` selector on 0.22.1; RESTActions still never "
-        "executed — [P0-3](ga-readiness.md#blockers)",
+        "its create is **proven working** — a single `POST` at `api-version=1.1` "
+        "returned 201 (`6a9d9c29`) with vpc/subnets/securityGroups/bootVolume/elasticIp "
+        "in one call. It cannot be driven by a RestDefinition because that create lives "
+        "in a second OAS document — [oasgen-provider#108]"
+        "(https://github.com/krateo-platformops/oasgen-provider/issues/108)",
     ),
 }
 

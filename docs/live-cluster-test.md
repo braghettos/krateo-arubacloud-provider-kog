@@ -985,3 +985,43 @@ their delete was exercised only through the chain teardown rather than as a veri
 step. **`P2` still stands** — `DatabaseUser.password` is a plaintext-in-spec field, and
 now demonstrably a base64-in-spec one, which is no better. The `database` provider should
 not be promoted until it can source that value from a Secret.
+
+### CloudServer created for real, and Job unblocked behind it
+
+The 1.1 create endpoint works exactly as Aruba's own SDK uses it. One POST, 201, with
+every association in the body:
+
+```
+POST /projects/{p}/providers/Aruba.Compute/cloudServers?api-version=1.1   -> 201
+  flavorName CSO1A2 · dataCenter ITBG-1
+  vpc + subnets[] + securityGroups[] + bootVolume + elasticIp   (all {uri} objects)
+  -> 6a9d9c29260a604a55d6c1c9, InCreation -> Active
+```
+
+**No power-on step, no associate step, no attach step.** The multi-call sequence this
+repository was built around does not exist for create — those endpoints are day-2. The
+boot volume had to be created `bootable: true` with `image: LU22-001`; a plain volume
+never boots, which is undocumented and stated only in Aruba's SDK and operator samples.
+
+This settles [#108](https://github.com/krateo-platformops/oasgen-provider/issues/108):
+CloudServer is not blocked by its API shape, only by a RestDefinition carrying a single
+`oasPath` while its create lives in `compute-provider_v1.1.json`.
+
+**`schedule/Job` then created against it**, which had been blocked with no way forward:
+
+```
+Job 6a9d9ec6156cdd48efdf9b7b   state Disabled (enabled: false)   Synced=True
+```
+
+The step form matters and is undocumented: `httpVerb: POST` with a **relative**
+`actionUri: poweroff`. A full path is rejected with *"The action /projects/…/poweroff
+with http verb POST is not configured for this resource typology"* — which reads like
+the action is unsupported when it is merely spelled wrong.
+
+`Job` is **beta**: created and observed with `status.metadata.id` populated, but `Ready`
+never went true — the same pattern as `Kaas` and `Registry`, and here the resource sits
+in a legitimate terminal state (`Disabled`, because the job is intentionally not
+enabled) that the readiness check does not appear to accept.
+
+Everything was removed afterwards: job, cloud server, boot volume and elastic IP.
+Account verified clear across servers, volumes, elastic IPs, jobs and dbaas.

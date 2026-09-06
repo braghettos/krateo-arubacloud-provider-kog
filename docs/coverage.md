@@ -19,9 +19,9 @@ A tier states what has actually been *executed* against the live Aruba API, not 
 | Tier | Bar | Count |
 |------|-----|-------|
 | **GA** | full `create → observe → drift → delete` against the live API | 16 |
-| beta | observe verified live; mutation unproven | 9 |
+| beta | observe verified live; mutation unproven | 10 |
 | experimental | generated, valid, reaches `Ready`, sample admitted | 7 |
-| **blocked** | known non-functional, reason recorded | 2 |
+| **blocked** | known non-functional, reason recorded | 1 |
 
 Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.md).
 
@@ -30,7 +30,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | Provider | Kind | Tier | Verbs | Identifier(s) | Evidence |
 |----------|------|------|-------|---------------|----------|
 | baremetal | `Hpc` | experimental | findby,get,create | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
-| compute | `CloudServer` | experimental | findby,get | `metadata.name` | gained a `metadata.name` selector on 0.22.1; RESTActions still never executed — [P0-3](ga-readiness.md#blockers) |
+| compute | `CloudServer` | experimental | findby,get | `metadata.name` | its create is **proven working** — a single `POST` at `api-version=1.1` returned 201 (`6a9d9c29`) with vpc/subnets/securityGroups/bootVolume/elasticIp in one call. It cannot be driven by a RestDefinition because that create lives in a second OAS document — [oasgen-provider#108](https://github.com/krateo-platformops/oasgen-provider/issues/108) |
 | compute | `KeyPair` | **GA** | findby,get,create,delete | `metadata.name` | full lifecycle live — [live-cluster-test](live-cluster-test.md) |
 | container | `Kaas` | beta | findby,get,create,update,delete | `metadata.name` | cluster created and reached **Active** upstream (`6a9aa956`, K2A4 / 1.33.2) and deleted cleanly, but the CR never reported `Ready` — **billable** ~EUR 0.076/hr — [live-cluster-test](live-cluster-test.md) |
 | container | `KaasBackup` | experimental | findby,get,create,update,delete | `metadata.name` | applies and reaches `Ready`; sample admitted by its CRD |
@@ -55,7 +55,7 @@ Only **GA** claims fitness for production use. See [ga-readiness](ga-readiness.m
 | project | `Project` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicy` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle live incl. drift correction — [live-cluster-test](live-cluster-test.md) |
 | schedule | `BackupPolicyAssignment` | beta | findby,get,create,update,delete | `metadata.name` | create → observe → **drift corrected** proven live (`6a9aea83`); delete did not complete — it entered `Deleting` and stayed there, and further DELETEs return 400 `Invalid status` — [live-cluster-test](live-cluster-test.md) |
-| schedule | `Job` | **blocked** | findby,get,create,update,delete | `metadata.name` | a step's only supported actions are **`poweron` / `poweroff` via POST** (GET is rejected: *All steps must have a correct HttpVerb defined*), so a Job requires a `CloudServer` to target — none exists and CloudServer creation is itself blocked on snowplow (P0-3) |
+| schedule | `Job` | beta | findby,get,create,update,delete | `metadata.name` | create/observe proven live (`6a9d9ec6`) against a real CloudServer. A step is **`POST` with a RELATIVE `actionUri`** (`poweroff`) — a full path is rejected as *not configured for this resource typology* — [live-cluster-test](live-cluster-test.md) |
 | security | `Key` | **GA** | findby,get,create,update,delete | `name` | create → observe → delete proven live (`b6ae8eee`). Drift is **not applicable**: its update body is `{name}` only, and `name` is the identifier, so there is no non-identifying field to converge — the same reasoning as `Restore` — **billable parent** — [live-cluster-test](live-cluster-test.md) |
 | security | `Kmip` | experimental | findby,get,create,update,delete | `name` | same `kmipId` status mapping correction as Key; not yet run |
 | security | `Kms` | **GA** | findby,get,create,update,delete | `metadata.name` | full lifecycle in one clean run incl. drift correction (`6a9ae569`) — **billable** — [live-cluster-test](live-cluster-test.md) |

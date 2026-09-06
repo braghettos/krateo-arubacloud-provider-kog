@@ -1,0 +1,40 @@
+# Prerequisites for a CloudServer, all created through the provider (each is already
+# GA or beta here). The server itself cannot be created by a RestDefinition — its POST
+# lives in the 1.1 document and a RestDefinition carries one oasPath
+# (oasgen-provider#108) — so it is created directly against the API afterwards.
+#
+# Two undeclared rules from Aruba's own code, both load-bearing:
+#   * the boot volume MUST be bootable:true WITH an image code — a plain volume never
+#     boots (sdk-go .FromImage(...).AsBootable(); operator ships blockstorage_bootable.yaml)
+#   * an unattached ElasticIp/BlockStorage settles at NotUsed, not Active
+name: cloudserver-prereqs
+vars:
+  PROJECT: 69a55c8d5e6f0e14f14093ff
+  LOCATION: ITBG-Bergamo
+residue:
+  - /projects/${PROJECT}/providers/Aruba.Storage/blockStorages
+  - /projects/${PROJECT}/providers/Aruba.Network/elasticIps
+  - /projects/${PROJECT}/providers/Aruba.Compute/keyPairs
+resources:
+  - kind: BlockStorage
+    name: ga-cs-boot
+    billable: true
+    spec:
+      configurationRef: {name: blockstorage-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-cs-boot, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        sizeGb: 20
+        billingPeriod: Hour
+        bootable: true
+        image: LU22-001        # Ubuntu 22.04, from Aruba's published image list
+
+  - kind: ElasticIp
+    name: ga-cs-eip
+    billable: true
+    spec:
+      configurationRef: {name: elasticip-config, namespace: default}
+      projectId: "${PROJECT}"
+      metadata: {name: ga-cs-eip, location: {value: "${LOCATION}"}, tags: []}
+      properties:
+        billingPlan: {billingPeriod: Hour}
