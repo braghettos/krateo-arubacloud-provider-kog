@@ -62,6 +62,81 @@ parameter where the API offers one; or accepting that read-only resources are
 only addressable once `status.id` is known. Until then the resource is generated
 but not usable, and saying so is better than shipping it in a GA list.
 
+
+## The four blocked resources
+
+Every blocked resource is blocked for a *known* reason, and none of the four is blocked
+by a defect in this repository. They are recorded here in full because
+[coverage](coverage.md) only carries a one-line reason per resource, and two of these
+have no other write-up.
+
+### `database/DatabaseUser` — an undeclared password policy
+
+The API rejects every create with `Password does not match the minimum requirements`.
+The OAS declares `password` as a bare string: no `minLength`, no `pattern`, no
+description beyond "The password to assign to the new database user".
+
+| Value | Length | Result |
+|---|---|---|
+| `Ga!Test123456Ac@` | 16 | rejected |
+| `Xq7#vNb2$wRt5Zk9` | 16 | rejected — no dictionary word, no sequence |
+| `Prova123456789AC@` | 17 | rejected — **Aruba's own SDK example value** |
+
+The third settles it: when the vendor's documented example fails the vendor's own
+validator, the rule is not derivable from anything published. Mining Aruba's first-party
+repos found a KB policy page, but its recommendation contradicted a value already
+rejected live, so it does not resolve this either. Every further attempt costs a
+billable reconcile against a running DBaaS.
+
+**Unblocked by:** Aruba stating the policy — support, or the CMP console's own form.
+
+### `database/Grant` — blocked behind DatabaseUser
+
+A grant binds a user to a database. Nothing about `Grant` itself is known to be wrong;
+it has simply never been reachable, because its user cannot be created. It has no
+recorded failure of its own.
+
+**Unblocked by:** `DatabaseUser`.
+
+### `schedule/Job` — blocked behind CloudServer
+
+A Job requires exactly one `steps[]` entry, and a read-only step is rejected outright:
+
+```
+Steps -> All steps must have a correct HttpVerb defined (POST, PUT, PATCH, DELETE).
+Steps -> Not found step typology.
+```
+
+Aruba's metadata documentation settles what a step may be: **POST only**, and *"Only
+`poweron` and `poweroff` are currently supported"*, with `body` required to be null. A
+Job is therefore a power operation on a `CloudServer` and nothing else. No cloud servers
+exist in the account, and CloudServer cannot currently be created —
+see [#108](https://github.com/krateo-platformops/oasgen-provider/issues/108). No payload
+work can unblock this.
+
+**Unblocked by:** a CloudServer to point at.
+
+### `network/LoadBalancer` — two independent blockers
+
+1. **Upstream selector shape.** Its identifier is `metadata.name`, because its findby
+   items are metadata-wrapped. oasgen emits that selector as a **flat key literally
+   named `"metadata.name"`**, while RDC's `isInResource` performs a nested traversal
+   (`spec` → `metadata` → `name`). Verified from both sides. They can never agree, so
+   `findby` matches nothing. Filed as
+   [#106](https://github.com/krateo-platformops/oasgen-provider/issues/106).
+2. **Nothing to select.** Even once #106 lands, no load balancer can be created: the API
+   has **no create verb**, and one exists only as a side effect of a Kubernetes
+   `Service` of type `LoadBalancer` inside a KaaS cluster.
+
+**Unblocked by:** #106 landing, *and* provisioning a billable KaaS cluster to make a
+load balancer exist.
+
+### What they have in common
+
+Three of the four are **Aruba not documenting or not exposing its own API**; the fourth
+is a single upstream defect, filed and small. None is a defect in the generated
+RestDefinitions.
+
 ## Blockers
 
 ### P0 — must clear before any GA claim
