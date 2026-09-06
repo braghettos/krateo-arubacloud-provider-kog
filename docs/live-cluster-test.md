@@ -1025,3 +1025,49 @@ enabled) that the readiness check does not appear to accept.
 
 Everything was removed afterwards: job, cloud server, boot volume and elastic IP.
 Account verified clear across servers, volumes, elastic IPs, jobs and dbaas.
+
+### 0.22.3 — #102 works; Kmip fails for a different reason (and my hypothesis was wrong)
+
+Upgraded to 0.22.3 (35 controllers, 34/34 Ready) specifically to see whether
+[#102](https://github.com/krateo-platformops/oasgen-provider/pull/102) — "consult the
+observe verb on any delete error, not just 404" — released the two teardowns that had
+wedged. It did not, and the reason is **not** that the fix is broken.
+
+**`security/Kmip` — a 200 tombstone.** After delete, the resource is gone from its list
+and still answers `GET` with 200:
+
+```
+GET .../kmip                     -> {"total":0,"values":[]}
+GET .../kmip?includeDeleted=true -> {"total":0,"values":[]}
+GET .../kmip/{id}                -> 200 {"status":"Deleted","deletionDate":"...21:31:39Z"}
+```
+
+`externalResourceStillExists` saw 200, reported the resource present, and held the
+finalizer. **That was the correct decision given the information it had** — 0.22.3's
+delete path behaved exactly as written. What is wrong is treating 200 as evidence of
+existence when the body says `Deleted`. Filed as
+[#111](https://github.com/krateo-platformops/oasgen-provider/issues/111).
+
+I nearly filed this as a regression against a working fix, and would have, had I not
+checked the raw endpoints before writing it up.
+
+**`schedule/BackupPolicyAssignment` — NOT the same cause.** I predicted it was the same
+tombstone problem. It is not:
+
+| | list | GET | status | deletionDate |
+|---|---|---|---|---|
+| `Kmip` | 0 | 200 | `Deleted` | set |
+| `BackupPolicyAssignment` | **1** | 200 | `Deleting` | **absent** |
+
+The assignment is genuinely still present, stuck mid-deletion server-side, and the
+volume it references returns 404 — because I deleted that volume out of dependency order
+when the teardown first stalled. Aruba never completes the deletion once the referenced
+resource has vanished. So this is **residue I created**, not a provider defect, and
+0.22.3 could never have fixed it.
+
+It also poisons re-runs: a fresh chain matched the stuck record by name and tried to
+update it, failing with `400`. A stuck resource makes its own name unusable.
+
+**Account state:** the billable members are gone (0 block storages, 0 KMS, 0 keys). A
+free `BackupPolicyAssignment` and its `BackupPolicy` remain wedged in `Deleting` and
+will need clearing from the Aruba console or by support.
